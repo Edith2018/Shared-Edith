@@ -1,0 +1,166 @@
+---
+title: "Own Data"
+author: "Edith N"
+format: html
+execute: 
+  echo: false
+  warning: false
+  output: true
+  message: false 
+  include: true
+  error: false
+---
+
+
+## About the data set
+The dataset contains information regarding the payment of insurance premiums by members in four schemes and each member is uniquely identified by an ID.
+
+```{r Loading Packages }
+library(tidyverse)
+library(fs)
+library(janitor)
+library(readxl)
+```
+
+
+```{r importing the dataset}
+MHIS <- read_excel("Raw-Data/Combined Memberlists.xlsx", sheet = "All Groups")
+
+```
+
+```{r Grouping}
+# Grouping by gender using the original data set --------------------------
+Gender_Split <- MHIS |>
+  group_by(Gender) |> 
+  summarise(total_count = n()) |> 
+  drop_na()
+```
+
+```{r}
+# Visualization -----------------------------------------------------------
+#| output: true
+ggplot(data = Gender_Split,
+       mapping = aes(x = Gender,
+                     y = total_count,
+                     fill = total_count,
+                     label = total_count))+
+  geom_col() +
+  labs(title = str_wrap("A bar plot showing members who paid premiums from the four schemes by gender", width = 50),
+       y = NULL) +
+  geom_label(vjust = 1,
+             color = "Red",
+             fill = "white")+
+  theme_minimal() +
+  scale_fill_viridis_c() +
+  theme(legend.position = "none")
+```
+
+
+
+```{r Age Distribution}
+# Create Age categories
+
+MHIS_Age_Category <- MHIS |>  mutate(
+    Age= case_when(
+    Age <= 14            ~ "0-14",
+    Age > 14 & Age <= 44 ~ "15-44",
+    Age > 44 & Age <= 64 ~ "45-64",
+    Age > 64             ~ "> 64"
+  ),
+  # Convert to factor
+  Age = factor(
+    Age,
+    level = c("0-14", "15-44","45-64", "> 64"),
+  )
+) |> 
+  drop_na()
+```
+
+```{r }
+# Visualization -----------------------------------------------------------
+#| output: true
+ggplot(data = MHIS_Age_Category, mapping = aes(x = Age,
+                                      fill = Age))+
+  geom_bar()+
+  geom_text(stat = "count", aes(label = ..count..), vjust = -0.5)+
+  labs(title = "Number of members who paid premiums by age group",
+       y = NULL)+
+  theme_minimal() +
+  scale_fill_viridis_d() +
+  theme(legend.position = "none")
+
+```
+
+
+```{r Using Pivot_longer}
+
+# Quarterly Analysis ------------------------------------------------------
+MHIS_Pivoted <- MHIS |> 
+  pivot_longer(cols = contains("Q"),
+               names_to = "Quarter_by_Year",
+               values_to = "True/False") |> 
+  mutate(`True/False` = case_when(
+    `True/False` == "R" ~ 1,
+    `True/False` == "T" ~ 0)) 
+```
+
+
+```{r introducing factors on the pivoted data set}
+# Making Quarter by year a factor with levels -----------------------------
+
+Quarter_by_Year_levels <- c("Q1 20","Q2 20","Q3 20","Q4 20",
+                            "Q1 21","Q2 21","Q3 21","Q4 21",
+                            "Q1 22","Q2 22","Q3 22","Q4 22",
+                            "Q1 23","Q2 23","Q3 23","Q4 23")
+MHIS_Pivoted <- MHIS_Pivoted |> 
+  mutate(Quarter_by_Year =fct(Quarter_by_Year,Quarter_by_Year_levels))
+```
+
+```{r}
+# Visualization  ----------------------------------------------------------
+#| output: true
+
+MHIS_Pivoted |> 
+  group_by(Quarter_by_Year) |> 
+  summarise(total_count = sum(`True/False`)) |> 
+  ggplot(mapping = aes(
+    x = Quarter_by_Year,
+    y = total_count,
+    fill = total_count,
+    label = total_count)) +
+  geom_col()+
+labs(title = "Number of scheme members who paid premiums per quarter",
+     X = "Quarter",
+     y = NULL) +
+  geom_label(vjust = 1,
+             color = "Blue",
+             fill = "white")+
+  theme_minimal() +
+  scale_fill_viridis_c(option = "A") +
+  theme(legend.position = "none")
+```
+
+
+
+```{r Quarterly analysis by gender}
+#| output: false
+# Grouping by quarter and gender ------------------------------------------
+  MHIS_Pivoted |> group_by(Quarter_by_Year, Gender) |> 
+  summarise(count = n()) |> 
+  pivot_wider(names_from = Gender, values_from =count)
+
+##Tried grouping here but its bringing the same values for all the quarters and they're all equal
+
+
+  
+```
+
+
+You can add options to executable code like this 
+
+```{r}
+#| echo: false
+2 * 2
+```
+
+The `echo: false` option disables the printing of code (only output is displayed).
